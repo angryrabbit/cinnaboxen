@@ -1,0 +1,39 @@
+require 'sshkit'
+
+host_options = {
+  hostname: 'YOUR IP ADDRESS HERE',
+  user:     'root',
+
+  ssh_options: {
+    auth_methods:  %w(publickey),
+    keys:          %w(~/.ssh/id_rsa),
+    forward_agent: true
+  }
+}
+
+host = SSHKit::Host.new(host_options)
+
+SSHKit::Coordinator.new(host).each do
+  execute(%{yum update -y})
+  execute(%{yum groupinstall -y "Development Tools"})
+  execute(%{yum install -y readline-devel openssl-devel zlib-devel})
+  execute(%{wget -q https://ftp.postgresql.org/pub/source/v9.6.1/postgresql-9.6.1.tar.bz2})
+  execute(%{bunzip2 postgresql-9.6.1.tar.bz2})
+  execute(%{tar xf postgresql-9.6.1.tar})
+  execute(%{/root/postgresql-9.6.1/configure --with-openssl})
+  execute(%{cd postgresql-9.6.1})
+  execute(%{make world})
+  execute(%{make install-world})
+  execute(%{mkdir -p /opt/postgresql/data})
+  execute(%{echo -e "\n\nexport PATH=$PATH:/usr/local/pgsql/bin;" >> /etc/profile})
+  execute(%{echo -e "\nexport PGDATA=/opt/postgresql/data;\n\n" >> /etc/profile})
+  execute(%{useradd postgres})
+  execute(%{chown postgres:postgres /opt/postgresql/data})
+  execute(%{chown postgres:postgres /opt/postgresql})
+  execute(%{su - postgres -c "initdb"})
+  execute(%{su - postgres -c "pg_ctl -l /opt/postgresql/data/logfile start"})
+  puts "You may now log into your remote-machine and run:"
+  puts
+  puts "  psql -U postgres"
+  puts
+end
